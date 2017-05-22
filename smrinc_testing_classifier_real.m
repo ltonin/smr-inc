@@ -1,13 +1,15 @@
 clearvars; clc; 
 
 sublist     = {'b4', 'a1', 'b9', 'c2', 'c4', 'c5', 'c6', 'c7'};
+subdates    = {'20160301', '20160310', '20160316', '20160321', '20160324', '20160329', '20160330', '20160331'};
 nsubjects   = length(sublist);
 
 pattern      = 'mi_hfr';
 extension    = '.mat';
 analysisdir  = 'analysis/';
 selectedtask = [771 773];
-NumSelFeatures = 6;
+FreqGrid     = 4:2:48;
+ChanGrid     = 1:16;
 
 % eegc3 style settings
 eegc3.modules.smr.gau.somunits 	= [1 1]; % QDA-style
@@ -23,11 +25,16 @@ eegc3.modules.smr.gau.terminate	= true;
 for sId = 1:nsubjects
     util_bdisp(['[io] - Subject ' num2str(sId) '/' num2str(nsubjects) ': ' sublist{sId}]);
     
+    % Get classifier
+    classifpath = [analysisdir sublist{sId} '_bhbf_' subdates{sId} '.mat'];
+    disp(['     - Loading classifier: ' classifpath])
+    cclassif = load(classifpath);
+    
     % Concatenating data
     [psd, events, labels, settings] = smrinc_concatenate_data(analysisdir, sublist{sId}, pattern, extension);
     F = log(psd);
     nsamples = size(psd, 1);
-    
+   
     % Generate event labels
     [~, CfbEvents] = proc_get_event2(781, nsamples, events.POS, events.TYP, events.DUR);
     [~, CueEvents] = proc_get_event2([771 773 783], nsamples, events.POS, events.TYP, events.DUR);
@@ -42,36 +49,14 @@ for sId = 1:nsubjects
         TrialId(cstart:cstop) = eId;
     end
     
-    % Select the classes
-    TaskIdx = false(nsamples, 1);
-    for cId = 1:length(selectedtask)
-        TaskIdx = TaskIdx | TrialLb == selectedtask(cId);
-    end
+    % Import classifier settings
+    util_bdisp('[proc] - Importing classifier parameters');
+    FeatureIdx = smrinc_eegc32index_features(cclassif.analysis.tools.features.bands, 4:2:48, 1:16);
+    gau = cclassif.analysis.tools.net.gau;
     
-    % Select the modality (offline)
-    ModalityIdx = labels.Mk == 0;
-    
-    % General indexes
-    Indexes = ModalityIdx & TaskIdx;
-    
-    % Compute discriminancy over the selected tasks
-    util_bdisp('[proc] - Computing fisher score');
-    fs = proc_fisher2(F(Indexes, :, :), TrialLb(Indexes));
-    
-    % Rank fs and select features
-    util_bdisp(['[proc] - Select the best ' num2str(NumSelFeatures) ' features']);
-    [~, FeaturesRankIdx] =  sort(fs, 'descend');
-    FeatureIdx = FeaturesRankIdx(1:NumSelFeatures);
-    
-    % Reshape data
+    % Reshaping data
     D  = proc_reshape_ts_bc(F);
-    P  = D(Indexes, FeatureIdx);
-    Pk = TrialLb(Indexes);
     T  = D(:, FeatureIdx);
-    
-    % Train classifier
-    util_bdisp('[proc] - Train classifier');
-    [gau, performace] = eegc3_train_gau(eegc3, P, Pk);
     
     % Evaluate classifier
     util_bdisp('[proc] - Evaluate classifier');
@@ -85,7 +70,8 @@ for sId = 1:nsubjects
     Ck = TrialLb;
     Sl = sublist{sId};
     Tk = TrialId;
-    filename = [analysisdir sublist{sId} '.probabilities.raw.mat'];
+
+    filename = [analysisdir sublist{sId} '.probabilities.raw.real.mat'];
     util_bdisp(['[out] - Saving raw probabilities in: ' filename]);
     save(filename, 'postprob', 'Mk', 'Ck', 'Sl', 'Tk');
     

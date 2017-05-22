@@ -5,7 +5,7 @@ nsubjects   = length(sublist);
 analysisdir = 'analysis/';
 
 for sId = 1:nsubjects
-    cfilename = [sublist{sId} '.probabilities.raw'];
+    cfilename = [sublist{sId} '.probabilities.raw.real'];
     util_bdisp(['[io] - Importing file ' num2str(sId) '/' num2str(nsubjects) ': ' cfilename '.mat']);
     cdata = load([analysisdir cfilename '.mat']);
     
