@@ -1,4 +1,4 @@
-function y = smrinc_dynamic_integrator(x, yp, p, dt)
+function y = smrinc_integrator_dynamic(x, yp, p, dt)
     
     lambdaf = 5;
     lambdab = 0.3;

@@ -1,7 +1,18 @@
 clearvars; clc;
 
-%% Exponential defintion
-alpha = 0.97;
+
+%% Force function definition
+
+sx = [0   0.1     0.2      0.4   0.5     0.6     0.8     0.9     1];
+sy = [0  -0.03      0     0.01     0   -0.01       0    0.03     0];
+
+degrees = 10;
+scoeff  = polyfit(sx, sy, degrees);
+F       = @(x, c) polyval(c, x);
+U       = @(x, c) -cumsum(F(x, c));
+
+
+
 
 %% Apply integration
 
@@ -35,7 +46,7 @@ for dId = 1:ndistr
             
             prevy = Y(n-1, ss, dId);                                        % Previous integrated values
             currx = input(n, dId);                                          % Current random input from distribution
-            curry = alpha*prevy + (1-alpha)*currx;                          % Current integrated Y 
+            curry = smrinc_integrator_dynamic(currx, prevy, scoeff, dt);    % Current integrated Y 
             Y(n, ss, dId) = curry;
         end
     end
@@ -44,17 +55,47 @@ end
 
 %% Plotting
 
+% State space, force profile, potential profile
+state     = 0:0.01:1;
+force     = F(state, scoeff);
+potential = U(state, scoeff);
+
 % Plots
 fig1 = figure;
 fig_set_position(fig1, 'All'); 
 
 NumRows = 4;
-NumCols = 4;
+NumCols = 5;
 
-% Exponential plots
+% Force plot
+subplot(NumRows, NumCols, [1 NumCols+1]);
+hold on;
+plot(state, force);
+dforce = diff(force);
+plot(sx(sy==0), sy(sy ==0), 'or');
+plot(sx(sy~=0), sy(sy ~=0), 'og');
+xlim([-0.05 1.05])
+hold off;
+plot_hline(0, 'k-');
+plot_vline(0.5, 'k-');
+grid on;
+ylabel('F(x)')
+title('Force');
+
+% Potential plot
+subplot(NumRows, NumCols, 1 + [2*NumCols 3*NumCols]);
+plot(state, potential);
+xlim([-0.05 1.05])
+plot_vline(0.5, 'k-');
+grid on;
+xlabel('x');
+ylabel('U(x) = - \int_{0}^{1} F(x) dx');
+title('Potential');
+
+% Dynamic plots
 
 for dId = 1:ndistr
-    subplot(NumRows, NumCols, [1 5 9] + dId-1);
+    subplot(NumRows, NumCols, [2 7 12] + dId-1);
     plot(t, Y(:, :, dId));
     xlabel('time [s]');
     ylabel('x');
@@ -66,7 +107,7 @@ for dId = 1:ndistr
     plot_hline(1, 'k-');
     title(ldistr{dId});
     
-    subplot(NumRows, NumCols, 13 + dId -1);
+    subplot(NumRows, NumCols, 17 + dId -1);
     edges = 0:0.05:1;
     cnts  = histc(input(:, dId), 0:0.05:1);
     bar(edges, 100*cnts./sum(cnts), 'histc');
@@ -77,6 +118,6 @@ for dId = 1:ndistr
     ylabel('%');
 end
 
-suptitle('Exponential integration study - random input');
+suptitle('Dynamic integration study - random input');
 
 
