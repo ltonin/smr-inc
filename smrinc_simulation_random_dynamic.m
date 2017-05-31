@@ -2,16 +2,32 @@ clearvars; clc;
 
 
 %% Force function definition
-
-sx = [0   0.1     0.2      0.4   0.5     0.6     0.8     0.9     1];
-sy = [0  -0.03      0     0.01     0   -0.01       0    0.03     0];
-
-degrees = 10;
-scoeff  = polyfit(sx, sy, degrees);
+% sx = [0   0.1     0.2      0.3   0.5     0.7     0.8     0.9     1];
+% sy = [0  -0.03      0     0.01     0   -0.01       0    0.03     0];
+% degrees = 8;
+% 
+% th = 0.55;
+% x1 = (1-th):0.01:th;
+% y1 = -0.5*(x1-0.5);
+% 
+% sx = [0  (1-th)/2  x1 th+(1-th)/2  1];
+% sy = [0 -0.05 y1 0.05 0];
+% degrees = 10;
+% 
+% 
+% % sx = [0   0.1     0.15     0.2  0.35  0.425  0.5   0.575    0.65   0.8     0.85     0.9     1];
+% % sy = [0  -0.03      0      0.02  0.01   0.005  0   -0.005   -0.01  -0.02        0    0.03     0];
+% % 
+% % degrees = 10;
+% scoeff  = polyfit(sx, sy, degrees);
+inclim = 0.65;
+nrpt   = 0.7;
+[scoeff, support] = smrinc_get_forceprofile(inclim, nrpt);
 F       = @(x, c) polyval(c, x);
 U       = @(x, c) -cumsum(F(x, c));
 
-
+%% Dynamic integrator parameters
+phi  = 0.8; 
 
 
 %% Apply integration
@@ -32,6 +48,8 @@ input  = zeros(npoints, ndistr);
 Y0      = 0:0.01:1;
 nstarts = length(Y0);
 Y = zeros(npoints, nstarts, ndistr);
+Yf = zeros(npoints, nstarts, ndistr);
+Yb = zeros(npoints, nstarts, ndistr);
 
 for dId = 1:ndistr
     
@@ -40,14 +58,23 @@ for dId = 1:ndistr
     input(:, dId) = smrinc_get_distribution(cdistr, npoints);
     
     for ss = 1:nstarts
+%         Yf(1, ss, dId) = Y0(ss);
+%         Yb(1, ss, dId) = Y0(ss);
         Y(1, ss, dId) = Y0(ss);
-
         for n = 2:npoints
             
-            prevy = Y(n-1, ss, dId);                                        % Previous integrated values
-            currx = input(n, dId);                                          % Current random input from distribution
-            curry = smrinc_integrator_dynamic(currx, prevy, scoeff, dt);    % Current integrated Y 
+            prevy = Y(n-1, ss, dId);                                                % Previous integrated values
+            currx = input(n, dId);                                                  % Current random input from distribution
+            curry = smrinc_integrator_dynamic(currx, prevy, scoeff, phi, dt); % Current integrated Y 
             Y(n, ss, dId) = curry;
+            
+%             prevyf = Yf(n-1, ss, dId);  
+%             prevyb = Yb(n-1, ss, dId);% Previous integrated values
+%             currx = input(n, dId);                                                  % Current random input from distribution
+%             [curryf, curryb] = smrinc_integrator_dynamic2(currx, prevyb, prevyf, scoeff, 1, 1, dt); % Current integrated Y 
+%             Y(n, ss, dId) = (curryf+curryb)./2;
+%             Yf(n, ss, dId) = curryf;
+%             Yb(n, ss, dId) = curryb;
         end
     end
     
@@ -72,8 +99,8 @@ subplot(NumRows, NumCols, [1 NumCols+1]);
 hold on;
 plot(state, force);
 dforce = diff(force);
-plot(sx(sy==0), sy(sy ==0), 'or');
-plot(sx(sy~=0), sy(sy ~=0), 'og');
+plot(support.anchor.x, support.anchor.y, 'or');
+%plot(sx(sy~=0), sy(sy ~=0), 'og');
 xlim([-0.05 1.05])
 hold off;
 plot_hline(0, 'k-');

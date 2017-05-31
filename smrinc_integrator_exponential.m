@@ -1,6 +1,6 @@
 function y = smrinc_integrator_exponential(x, yp, alpha, rejection)
 
-    if(max(x) >= 1 - rejection && max(x) <= rejection)
+    if(x > 1 - rejection && x < rejection)
         x = yp;
     end
     
